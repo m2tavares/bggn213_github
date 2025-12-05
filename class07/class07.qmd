@@ -1,0 +1,255 @@
+---
+title: "Class 7: Machine Learning 1"
+author: "Maria Tavares (A69036242)"
+format: pdf
+---
+
+Today we will begin exploration of some "classical" machine learning approaches. We will start with clustering: 
+
+Let's first make up some data to cluster where we know what the answer should be. 
+
+```{r}
+hist( rnorm(1000) )
+```
+
+```{r}
+x <- c(rnorm(30, mean = -3), rnorm(30, mean = 3))
+y <- rev(x)
+
+x <- cbind(x,y)
+head(x)
+```
+
+A wee peak at x with `plot()`
+
+```{r}
+plot(x)
+```
+
+The main function in "base" R for K-means clustering is called `kmeans()`. 
+
+```{r}
+k <- kmeans(x, centers = 2)
+k
+```
+> Q. How big are the clusters(i.e their size)?
+
+```{r}
+k$size
+```
+
+> Q. What clusters do my data points reside in?
+
+```{r}
+k$cluster
+```
+
+> Q. Make a plot of our data colored by cluster assignment - i.e make a result figure...
+
+```{r}
+plot(x, col = k$cluster )
+points(k$centers, col = "blue", pch = 15)
+```
+
+> Q. Now cluster with k-means into 4 clusters and plot your results.
+
+```{r}
+k4 <- kmeans(x, centers = 4)
+k4
+```
+
+```{r}
+plot(x, col = k4$cluster )
+points(k4$centers, col = "blue", pch = 15)
+```
+
+> Q. Run k-means with center (i.e values of k) equal to 1 to 6
+
+```{r}
+ans <- NULL
+for (i in 1:6) {
+  ans <- c(ans, kmeans(x, centers =i)$tot.withinss)
+}
+ans
+```
+
+```{r}
+plot(ans, typ="b")
+```
+
+## Hierarchical Clustering 
+
+The main function in "base" R for this is called `hclust()`
+
+```{r}
+d <- dist(x)
+hc <-hclust(d)
+hc
+```
+
+```{r}
+plot(hc)
+abline(h=7,col="red")
+```
+To obtain clusters from out `hclust` result object **hc** we "cut" the tree to yield different sub branches. For this we use the `cutree()` function
+ 
+```{r}
+grps <- cutree(hc, h=7)
+grps
+```
+
+```{r}
+plot(x, col = grps)
+```
+```{r}
+library(pheatmap)
+
+pheatmap(x)
+```
+
+## Principal Component Analysis (PCA)
+
+```{r}
+url <- "https://tinyurl.com/UK-foods"
+x <- read.csv(url)
+```
+
+> Q1. How many rows and columns are in your new data frame named x? What R functions could you use to answer this questions?
+
+```{r}
+dim(x)
+```
+
+```{r}
+head(x)
+```
+
+```{r}
+# Note how the minus indexing works
+rownames(x) <- x[,1]
+x <- x[,-1]
+head(x)
+```
+
+```{r}
+dim(x)
+```
+
+```{r}
+x <- read.csv(url, row.names=1)
+head(x)
+```
+
+> Q2. Which approach to solving the ‘row-names problem’ mentioned above do you prefer and why? Is one approach more robust than another under certain circumstances?
+
+The second one because running the first one multiple times would get keep getting rid of columns. 
+
+### Spotting major differences and trends
+
+```{r}
+rainbow(nrow(x))
+```
+
+```{r}
+barplot(as.matrix(x), beside=T, col=rainbow(nrow(x)))
+```
+
+> Q3: Changing what optional argument in the above barplot() function results in the following plot?
+
+Setting beside argument to FALSE (or removing it cause the default is fault)
+```{r}
+barplot(as.matrix(x), col=rainbow(nrow(x)))
+```
+Now using GG plot 
+
+```{r}
+library(tidyr)
+
+# Convert data to long format for ggplot with `pivot_longer()`
+x_long <- x |> 
+          tibble::rownames_to_column("Food") |> 
+          pivot_longer(cols = -Food, 
+                       names_to = "Country", 
+                       values_to = "Consumption")
+
+dim(x_long)
+```
+
+```{r}
+head(x_long)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(x_long) +
+  aes(x = Country, y = Consumption, fill = Food) +
+  geom_col(position = "dodge") +
+  theme_bw()
+```
+
+> Q4: Changing what optional argument in the above ggplot() code results in a stacked barplot figure?
+
+##Pairs plots and heatmaps
+
+> Q5: We can use the pairs() function to generate all pairwise plots for our countries. Can you make sense of the following code and resulting figure? What does it mean if a given point lies on the diagonal for a given plot?
+
+Away from the diagonal means more dissimilar.
+
+```{r}
+pairs(x, col=rainbow(nrow(x)), pch=16)
+```
+
+```{r}
+library(pheatmap)
+
+pheatmap( as.matrix(x) )
+```
+
+> Q6. Based on the pairs and heatmap figures, which countries cluster together and what does this suggest about their food consumption patterns? Can you easily tell what the main differences between N. Ireland and the other countries of the UK in terms of this data-set?
+
+You can infer Wales and England are similar in their food consumption. N. Ireland is more dissimilar but you can't draw many conclusions by just looking at the heatmap. 
+
+## PCA to the rescue 
+
+The main function in "base" R for PCA is called `prcomp()`. 
+
+As we want to do PCA on the food data for the different countries we will want the foods in the columns. 
+```{r}
+t(x)
+```
+
+```{r}
+pca <- prcomp( t(x) )
+summary(pca)
+```
+
+Our result object is called `pca`and it has a `$x` component that we will look at first.
+
+```{r}
+pca$x
+```
+> Q7. Complete the code below to generate a plot of PC1 vs PC2. The second line adds text labels over the data points.
+
+> Q8. Customize your plot so that the colors of the country names match the colors in our UK and Ireland map and table at start of this document.
+
+```{r}
+library(ggplot2)
+cols <- c("orange", "red", "blue", "darkgreen")
+ggplot(pca$x) +
+  aes(PC1, PC2, label =rownames(pca$x)) +
+  geom_point(col =cols) +
+  geom_text()
+```
+
+Another major result of PCA is the so-called "variable loadings" or `$rotation`that tells us how the original variables (foods) contribute to PCs(i.e. our new axis)
+
+```{r}
+pca$rotation
+```
+```{r}
+ggplot(pca$rotation) +
+  aes(PC1, rownames(pca$rotation)) +
+  geom_col()
+```
+
